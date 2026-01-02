@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use defmt::*;
 use embassy_executor::Spawner;
 use embassy_rp::{
     Peri, bind_interrupts,
@@ -9,7 +8,7 @@ use embassy_rp::{
     peripherals::USB,
     usb::{Driver, Instance, InterruptHandler},
 };
-use embassy_time::{Delay, Duration, Timer};
+use embassy_time::{Duration, Timer};
 use embassy_usb::{class::midi::MidiClass, driver::EndpointError};
 use embedded_graphics::{
     mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
@@ -18,13 +17,11 @@ use embedded_graphics::{
     text::{Baseline, Text},
 };
 mod tasks;
-use embedded_hal_1::delay::DelayNs;
-use smart_leds::RGB;
 use tasks::{read_controls, read_key};
 mod display;
 use crate::{
     board::{Board, Peripherals},
-    tasks::{LIGHTS_CHANNEL, LedUpdate, read_button, sequencer, update_lights},
+    tasks::{read_button, sequencer, update_lights},
 };
 use midi_convert::{
     midi_types::{MidiMessage, Note},
@@ -51,7 +48,15 @@ type KeyGrid<T> = [[T; COLS]; ROWS];
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
+    let keys: KeyGrid<Peri<'static, AnyPin>> = [
+        [p.PIN_1.into(), p.PIN_2.into(), p.PIN_3.into()],
+        [p.PIN_4.into(), p.PIN_5.into(), p.PIN_6.into()],
+        [p.PIN_7.into(), p.PIN_8.into(), p.PIN_9.into()],
+        [p.PIN_10.into(), p.PIN_11.into(), p.PIN_12.into()],
+    ];
+
     let peripherals = Peripherals {
+        keys,
         key_leds_spi: p.SPI0,
         key_leds_mosi: p.PIN_19,
         rotary_button: p.PIN_0,
@@ -83,27 +88,9 @@ async fn main(spawner: Spawner) {
     spawner.spawn(read_button(board.rotary_button)).unwrap();
     spawner.spawn(sequencer()).unwrap();
 
-    LIGHTS_CHANNEL
-        .send(LedUpdate {
-            coord: (2, 3),
-            color: RGB {
-                r: 0x40,
-                g: 0,
-                b: 0,
-            },
-        })
-        .await;
-
-    let keys: [[Peri<'static, AnyPin>; COLS]; ROWS] = [
-        [p.PIN_1.into(), p.PIN_2.into(), p.PIN_3.into()],
-        [p.PIN_4.into(), p.PIN_5.into(), p.PIN_6.into()],
-        [p.PIN_7.into(), p.PIN_8.into(), p.PIN_9.into()],
-        [p.PIN_10.into(), p.PIN_11.into(), p.PIN_12.into()],
-    ];
-
-    for (y, row) in keys.into_iter().enumerate() {
-        for (x, pin) in row.into_iter().enumerate() {
-            spawner.spawn(read_key(pin, (x as u8, y as u8))).unwrap();
+    for (y, row) in board.keys.into_iter().enumerate() {
+        for (x, input) in row.into_iter().enumerate() {
+            spawner.spawn(read_key(input, (x as u8, y as u8))).unwrap();
         }
     }
 

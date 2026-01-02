@@ -1,7 +1,4 @@
-use embassy_rp::{
-    Peri,
-    gpio::{AnyPin, Input, Pull},
-};
+use embassy_rp::gpio::Input;
 use embassy_time::Duration;
 
 use crate::{
@@ -11,8 +8,7 @@ use crate::{
 };
 
 #[embassy_executor::task(pool_size = 12)]
-pub async fn read_key(pin: Peri<'static, AnyPin>, coord: Coord) {
-    let input = Input::new(pin, Pull::Up);
+pub async fn read_key(input: Input<'static>, coord: Coord) {
     let mut button = DebouncedButton::new(input, Duration::from_millis(10));
 
     loop {

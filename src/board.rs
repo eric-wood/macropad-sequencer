@@ -1,13 +1,14 @@
 use embassy_rp::{
     Peri,
-    gpio::{Input, Level, Output, Pull},
+    gpio::{AnyPin, Input, Level, Output, Pull},
     peripherals::{PIN_0, PIN_19, PIN_22, PIN_23, PIN_24, PIN_26, PIN_27, PIN_28, SPI0, SPI1},
     spi::{Config as SpiConfig, Spi},
 };
 
-use crate::{display::Display, key_leds::KeyLeds};
+use crate::{KeyGrid, display::Display, key_leds::KeyLeds};
 
 pub struct Peripherals {
+    pub keys: KeyGrid<Peri<'static, AnyPin>>,
     pub key_leds_spi: Peri<'static, SPI0>,
     pub key_leds_mosi: Peri<'static, PIN_19>,
     pub rotary_button: Peri<'static, PIN_0>,
@@ -21,6 +22,7 @@ pub struct Peripherals {
 }
 
 pub struct Board {
+    pub keys: KeyGrid<Input<'static>>,
     pub key_leds: KeyLeds,
     pub display: Display,
     pub rotary_button: Input<'static>,
@@ -50,7 +52,10 @@ impl Board {
 
         let rotary_button = Input::new(p.rotary_button, Pull::Up);
 
+        let keys = p.keys.map(|row| row.map(|pin| Input::new(pin, Pull::Up)));
+
         Self {
+            keys,
             key_leds,
             display,
             rotary_button,
