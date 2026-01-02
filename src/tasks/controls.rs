@@ -1,10 +1,15 @@
+use core::sync::atomic::Ordering;
+
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use smart_leds::RGB;
 
 use crate::{
-    COLS, KeyGrid, ROWS,
+    COLS, KeyGrid, ROWS, SPEED_MS,
     key_leds::Coord,
-    tasks::lights::{LIGHTS_CHANNEL, LedUpdate},
+    tasks::{
+        display::{DISPLAY_CHANNEL, DisplayUpdate},
+        lights::{LIGHTS_CHANNEL, LedUpdate},
+    },
 };
 
 pub static CONTROLS_CHANNEL: Channel<ThreadModeRawMutex, ControlEvent, 10> = Channel::new();
@@ -13,6 +18,7 @@ pub enum ControlEvent {
     Key { pressed: bool, coord: Coord },
     RotaryButton { pressed: bool },
     SequencerStep { coord: Coord },
+    RotaryEncoder { increment: i32 },
 }
 
 #[embassy_executor::task]
@@ -25,7 +31,14 @@ pub async fn read_controls() {
     };
 
     let off = RGB { r: 0, g: 0, b: 0 };
+    let current = RGB {
+        r: 0,
+        g: 0,
+        b: 0x50,
+    };
     let mut step: Coord = (0, 0);
+    let mut bpm: i32 = 120;
+    update_bpm(bpm).await;
 
     loop {
         match CONTROLS_CHANNEL.receive().await {
@@ -38,7 +51,7 @@ pub async fn read_controls() {
                 state = !state;
                 key_state[coord.1 as usize][coord.0 as usize] = state;
                 let color = if state { active } else { off };
-                LIGHTS_CHANNEL.send(LedUpdate { coord, color }).await;
+                update_key_light(coord, color).await;
             }
             ControlEvent::RotaryButton { pressed } => {
                 if !pressed {
@@ -47,38 +60,37 @@ pub async fn read_controls() {
 
                 for y in 0..4 {
                     for x in 0..3 {
-                        LIGHTS_CHANNEL
-                            .send(LedUpdate {
-                                coord: (x, y),
-                                color: RGB {
-                                    r: 0x40,
-                                    g: 0,
-                                    b: 0,
-                                },
-                            })
-                            .await;
+                        update_key_light((x, y), active).await;
                     }
                 }
             }
+            ControlEvent::RotaryEncoder { increment } => {
+                bpm += increment;
+                update_bpm(bpm).await;
+            }
             ControlEvent::SequencerStep { coord } => {
-                LIGHTS_CHANNEL
-                    .send(LedUpdate {
-                        coord: step,
-                        color: RGB { r: 0, g: 0, b: 0 },
-                    })
-                    .await;
-                LIGHTS_CHANNEL
-                    .send(LedUpdate {
-                        coord,
-                        color: RGB {
-                            r: 0,
-                            g: 0,
-                            b: 0x50,
-                        },
-                    })
-                    .await;
+                let prev_color = if key_state[step.1 as usize][step.0 as usize] {
+                    active
+                } else {
+                    off
+                };
+
+                update_key_light(step, prev_color).await;
+                update_key_light(coord, current).await;
                 step = coord;
             }
         }
     }
+}
+
+async fn update_bpm(bpm: i32) {
+    let speed_ms = 60_000 / bpm;
+    SPEED_MS.store(speed_ms as u32, Ordering::Relaxed);
+    DISPLAY_CHANNEL
+        .send(DisplayUpdate { bpm: bpm as u32 })
+        .await;
+}
+
+async fn update_key_light(coord: Coord, color: RGB<u8>) {
+    LIGHTS_CHANNEL.send(LedUpdate { coord, color }).await;
 }

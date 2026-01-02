@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::sync::atomic::AtomicU32;
+
 use embassy_executor::Spawner;
 use embassy_rp::{
     Peri, bind_interrupts,
@@ -21,7 +23,7 @@ use tasks::{read_controls, read_key};
 mod display;
 use crate::{
     board::{Board, Peripherals},
-    tasks::{read_button, sequencer, update_lights},
+    tasks::{drive_display, read_button, read_rotary_encoder, sequencer, update_lights},
 };
 use midi_convert::{
     midi_types::{MidiMessage, Note},
@@ -33,6 +35,7 @@ use {defmt_rtt as _, panic_probe as _};
 mod board;
 mod debounced_button;
 mod key_leds;
+mod rotary_encoder;
 mod usb;
 
 bind_interrupts!(struct Irqs {
@@ -41,8 +44,9 @@ bind_interrupts!(struct Irqs {
 
 const COLS: usize = 3;
 const ROWS: usize = 4;
-
 type KeyGrid<T> = [[T; COLS]; ROWS];
+
+static SPEED_MS: AtomicU32 = AtomicU32::new(120);
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
@@ -60,6 +64,8 @@ async fn main(spawner: Spawner) {
         key_leds_spi: p.SPI0,
         key_leds_mosi: p.PIN_19,
         rotary_button: p.PIN_0,
+        rotary_encoder_a: p.PIN_18,
+        rotary_encoder_b: p.PIN_17,
         display_spi: p.SPI1,
         display_cs: p.PIN_22,
         display_rst: p.PIN_23,
@@ -69,24 +75,16 @@ async fn main(spawner: Spawner) {
         display_miso: p.PIN_28,
     };
 
-    let mut board = Board::new(peripherals);
-
-    board.display.init();
-    let text_style = MonoTextStyleBuilder::new()
-        .font(&FONT_6X10)
-        .text_color(BinaryColor::On)
-        .build();
-
-    Text::with_baseline("Hello, world!", Point::zero(), text_style, Baseline::Top)
-        .draw(&mut board.display.display)
-        .unwrap();
-
-    board.display.flush();
+    let board = Board::new(peripherals);
 
     spawner.spawn(read_controls()).unwrap();
     spawner.spawn(update_lights(board.key_leds)).unwrap();
     spawner.spawn(read_button(board.rotary_button)).unwrap();
+    spawner
+        .spawn(read_rotary_encoder(board.rotary_encoder))
+        .unwrap();
     spawner.spawn(sequencer()).unwrap();
+    spawner.spawn(drive_display(board.display)).unwrap();
 
     for (y, row) in board.keys.into_iter().enumerate() {
         for (x, input) in row.into_iter().enumerate() {

@@ -1,9 +1,13 @@
 mod buttons;
 mod controls;
+mod display;
 mod lights;
+mod rotary;
 mod sequencer;
 
 pub use buttons::{read_button, read_key};
 pub use controls::{CONTROLS_CHANNEL, read_controls};
-pub use lights::{LIGHTS_CHANNEL, LedUpdate, update_lights};
+pub use display::drive_display;
+pub use lights::update_lights;
+pub use rotary::read_rotary_encoder;
 pub use sequencer::sequencer;

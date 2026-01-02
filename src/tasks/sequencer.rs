@@ -1,7 +1,9 @@
+use core::sync::atomic::Ordering;
+
 use embassy_time::Timer;
 
 use crate::{
-    COLS,
+    COLS, SPEED_MS,
     tasks::{CONTROLS_CHANNEL, controls::ControlEvent},
 };
 
@@ -21,6 +23,6 @@ pub async fn sequencer() {
             step = 0;
         }
 
-        Timer::after_millis(500).await;
+        Timer::after_millis(SPEED_MS.load(Ordering::Relaxed) as u64).await;
     }
 }

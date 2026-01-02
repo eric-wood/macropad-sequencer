@@ -33,4 +33,8 @@ impl Display {
     pub fn flush(&mut self) {
         self.display.flush().unwrap();
     }
+
+    pub fn clear(&mut self) {
+        self.display.clear();
+    }
 }
