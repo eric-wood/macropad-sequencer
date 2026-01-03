@@ -2,17 +2,21 @@ use embassy_rp::{
     Peri,
     gpio::{AnyPin, Input, Level, Output, Pull},
     peripherals::{
-        PIN_0, PIN_17, PIN_18, PIN_19, PIN_22, PIN_23, PIN_24, PIN_26, PIN_27, PIN_28, SPI0, SPI1,
+        PIN_0, PIN_17, PIN_18, PIN_19, PIN_22, PIN_23, PIN_24, PIN_26, PIN_27, PIN_28, PIO0, SPI0,
+        SPI1,
     },
+    pio::Pio,
+    pio_programs::rotary_encoder::{PioEncoder, PioEncoderProgram},
     spi::{Config as SpiConfig, Spi},
 };
 
-use crate::{KeyGrid, display::Display, key_leds::KeyLeds, rotary_encoder::RotaryEncoder};
+use crate::{Irqs, KeyGrid, display::Display, key_leds::KeyLeds, rotary_encoder::RotaryEncoder};
 
 pub struct Peripherals {
     pub keys: KeyGrid<Peri<'static, AnyPin>>,
-    pub rotary_encoder_a: Peri<'static, PIN_18>,
-    pub rotary_encoder_b: Peri<'static, PIN_17>,
+    pub rotary_encoder_a: Peri<'static, PIN_17>,
+    pub rotary_encoder_b: Peri<'static, PIN_18>,
+    pub rotary_encoder_pio: Peri<'static, PIO0>,
     pub key_leds_spi: Peri<'static, SPI0>,
     pub key_leds_mosi: Peri<'static, PIN_19>,
     pub rotary_button: Peri<'static, PIN_0>,
@@ -56,9 +60,18 @@ impl Board {
         let display = Display::new(display_spi, dc, cs, rst);
 
         let rotary_button = Input::new(p.rotary_button, Pull::Up);
-        let input_a = Input::new(p.rotary_encoder_a, Pull::Up);
-        let input_b = Input::new(p.rotary_encoder_b, Pull::Up);
-        let rotary_encoder = RotaryEncoder::new(input_a, input_b);
+        let Pio {
+            mut common, sm0, ..
+        } = Pio::new(p.rotary_encoder_pio, Irqs);
+        let prg = PioEncoderProgram::new(&mut common);
+        let pio_encoder = PioEncoder::new(
+            &mut common,
+            sm0,
+            p.rotary_encoder_a,
+            p.rotary_encoder_b,
+            &prg,
+        );
+        let rotary_encoder = RotaryEncoder::new(pio_encoder);
 
         let keys = p.keys.map(|row| row.map(|pin| Input::new(pin, Pull::Up)));
 

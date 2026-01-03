@@ -7,17 +7,12 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     Peri, bind_interrupts,
     gpio::{AnyPin, Level, Output},
-    peripherals::USB,
-    usb::{Driver, Instance, InterruptHandler},
+    peripherals::{PIO0, USB},
+    pio::InterruptHandler as PioInterruptHandler,
+    usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler},
 };
 use embassy_time::{Duration, Timer};
 use embassy_usb::{class::midi::MidiClass, driver::EndpointError};
-use embedded_graphics::{
-    mono_font::{MonoTextStyleBuilder, ascii::FONT_6X10},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Baseline, Text},
-};
 mod tasks;
 use tasks::{read_controls, read_key};
 mod display;
@@ -39,7 +34,8 @@ mod rotary_encoder;
 mod usb;
 
 bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => InterruptHandler<USB>;
+    USBCTRL_IRQ => UsbInterruptHandler<USB>;
+    PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
 });
 
 const COLS: usize = 3;
@@ -64,8 +60,9 @@ async fn main(spawner: Spawner) {
         key_leds_spi: p.SPI0,
         key_leds_mosi: p.PIN_19,
         rotary_button: p.PIN_0,
-        rotary_encoder_a: p.PIN_18,
-        rotary_encoder_b: p.PIN_17,
+        rotary_encoder_a: p.PIN_17,
+        rotary_encoder_b: p.PIN_18,
+        rotary_encoder_pio: p.PIO0,
         display_spi: p.SPI1,
         display_cs: p.PIN_22,
         display_rst: p.PIN_23,
