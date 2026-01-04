@@ -5,9 +5,11 @@ use embassy_rp::{
 };
 use sh1106::{mode::GraphicsMode, prelude::SpiInterface};
 
+pub type MonoDisplay = GraphicsMode<SpiInterface<SpiOut, Output<'static>, Output<'static>>>;
+
 type SpiOut = Spi<'static, SPI1, Blocking>;
 pub struct Display {
-    pub display: GraphicsMode<SpiInterface<SpiOut, Output<'static>, Output<'static>>>,
+    pub display: MonoDisplay,
     rst: Output<'static>,
 }
 

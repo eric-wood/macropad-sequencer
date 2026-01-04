@@ -30,6 +30,7 @@ use {defmt_rtt as _, panic_probe as _};
 mod board;
 mod debounced_button;
 mod key_leds;
+mod menus;
 mod rotary_encoder;
 mod usb;
 

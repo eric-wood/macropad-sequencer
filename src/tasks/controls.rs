@@ -24,21 +24,13 @@ pub enum ControlEvent {
 #[embassy_executor::task]
 pub async fn read_controls() {
     let mut key_state: KeyGrid<bool> = [[false; COLS]; ROWS];
-    let active = RGB {
-        r: 0x40,
-        g: 0x00,
-        b: 0x00,
-    };
 
+    let active = RGB { r: 5, g: 5, b: 5 };
     let off = RGB { r: 0, g: 0, b: 0 };
-    let current = RGB {
-        r: 0,
-        g: 0,
-        b: 0x50,
-    };
+    let current = RGB { r: 32, g: 0, b: 0 };
+
     let mut step: Coord = (0, 0);
     let mut bpm: i32 = 120;
-    update_bpm(bpm).await;
 
     loop {
         match CONTROLS_CHANNEL.receive().await {
@@ -58,16 +50,9 @@ pub async fn read_controls() {
                     continue;
                 }
 
-                for y in 0..4 {
-                    for x in 0..3 {
-                        update_key_light((x, y), active).await;
-                    }
-                }
+                rotary_press().await;
             }
-            ControlEvent::RotaryEncoder { increment } => {
-                bpm += increment;
-                update_bpm(bpm).await;
-            }
+            ControlEvent::RotaryEncoder { increment } => rotary_change(increment).await,
             ControlEvent::SequencerStep { coord } => {
                 let prev_color = if key_state[step.1 as usize][step.0 as usize] {
                     active
@@ -83,11 +68,13 @@ pub async fn read_controls() {
     }
 }
 
-async fn update_bpm(bpm: i32) {
-    let speed_ms = 60_000 / bpm;
-    SPEED_MS.store(speed_ms as u32, Ordering::Relaxed);
+async fn rotary_press() {
+    DISPLAY_CHANNEL.send(DisplayUpdate::RotaryPress).await;
+}
+
+async fn rotary_change(increment: i32) {
     DISPLAY_CHANNEL
-        .send(DisplayUpdate { bpm: bpm as u32 })
+        .send(DisplayUpdate::RotaryMove { increment })
         .await;
 }
 
