@@ -1,9 +1,8 @@
 use core::sync::atomic::Ordering;
 
-use embassy_time::Timer;
-
 use crate::{
-    COLS, SPEED_MS,
+    BPM, COLS, PLAY, SWING, TIMING,
+    sequencer_timer::{SequencerConfig, SequencerTimer},
     tasks::{CONTROLS_CHANNEL, controls::ControlEvent},
 };
 
@@ -12,17 +11,24 @@ pub async fn sequencer() {
     let mut step: u8 = 0;
     let cols = COLS as u8;
 
+    let mut timer = SequencerTimer::new();
     loop {
-        let coord = (step % cols, step / cols);
-        CONTROLS_CHANNEL
-            .send(ControlEvent::SequencerStep { coord })
-            .await;
+        let play = PLAY.load(Ordering::Relaxed);
+        if play {
+            let coord = (step % cols, step / cols);
+            CONTROLS_CHANNEL
+                .send(ControlEvent::SequencerStep { coord })
+                .await;
 
-        step += 1;
-        if step == 12 {
-            step = 0;
+            step = (step + 1).rem_euclid(12);
+
+            timer.set(SequencerConfig {
+                bpm: BPM.load(Ordering::Relaxed),
+                timing: TIMING.load(Ordering::Relaxed).into(),
+                swing: SWING.load(Ordering::Relaxed),
+            });
         }
 
-        Timer::after_millis(SPEED_MS.load(Ordering::Relaxed) as u64).await;
+        timer.next_step().await;
     }
 }

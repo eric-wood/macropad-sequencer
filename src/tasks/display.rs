@@ -1,5 +1,9 @@
-use crate::menus::{
-    BooleanMenuItem, EnumMenuItem, Menu, NumericMenuItem, SequencerMenu, Stringable,
+use core::sync::atomic::Ordering;
+
+use crate::{
+    BPM, PLAY, SWING, TIMING,
+    menus::{BooleanMenuItem, EnumMenuItem, Menu, NumericMenuItem, SequencerMenu},
+    sequencer_timer::TimingOption,
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 
@@ -22,38 +26,25 @@ impl<'a> Menus<'a> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum TimingOption {
-    Quarter,
-    Eighth,
-    Sixteenth,
-}
-
-impl Stringable for TimingOption {
-    fn as_str(&self) -> &str {
-        match self {
-            TimingOption::Quarter => "1/4",
-            TimingOption::Eighth => "1/8",
-            TimingOption::Sixteenth => "1/16",
-        }
-    }
-}
-
 #[embassy_executor::task]
 pub async fn drive_display(mut display: Display) {
     display.init();
-
-    let mut play_menu = BooleanMenuItem::new("STATUS", "PLAYING", "PAUSED");
-    let mut bpm_menu = NumericMenuItem::new("BPM", 120);
+    TIMING.store(TimingOption::Quarter.into(), Ordering::Relaxed);
+    let mut play_menu = BooleanMenuItem::new("STATUS", "PLAYING", "PAUSED", &PLAY);
+    let mut bpm_menu = NumericMenuItem::new("BPM", &BPM);
     let mut timing_menu = EnumMenuItem::new(
         "TIMING",
         [
             TimingOption::Quarter,
+            TimingOption::QuarterTriplet,
             TimingOption::Eighth,
+            TimingOption::EighthTriplet,
             TimingOption::Sixteenth,
+            TimingOption::SixteenthTriplet,
         ],
+        &TIMING,
     );
-    let mut swing_menu = NumericMenuItem::new("SWING", 0);
+    let mut swing_menu = NumericMenuItem::new("SWING", &SWING);
 
     let sequencer = SequencerMenu::new([
         &mut play_menu,
@@ -63,6 +54,8 @@ pub async fn drive_display(mut display: Display) {
     ]);
 
     let mut menus = Menus::new(sequencer);
+    menus.sequencer.render(&mut display.display);
+    display.flush();
 
     loop {
         match DISPLAY_CHANNEL.receive().await {

@@ -1013,6 +1013,7 @@ dependencies = [
  "itoa",
  "log",
  "midi-convert",
+ "num_enum",
  "panic-probe",
  "pio",
  "pio-proc",

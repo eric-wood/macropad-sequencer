@@ -4,7 +4,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use smart_leds::RGB;
 
 use crate::{
-    COLS, KeyGrid, ROWS, SPEED_MS,
+    COLS, KeyGrid, ROWS,
     key_leds::Coord,
     tasks::{
         display::{DISPLAY_CHANNEL, DisplayUpdate},
@@ -30,7 +30,6 @@ pub async fn read_controls() {
     let current = RGB { r: 32, g: 0, b: 0 };
 
     let mut step: Coord = (0, 0);
-    let mut bpm: i32 = 120;
 
     loop {
         match CONTROLS_CHANNEL.receive().await {

@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::AtomicU32;
+use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU32};
 
 use embassy_executor::Spawner;
 use embassy_rp::{
@@ -32,6 +32,7 @@ mod debounced_button;
 mod key_leds;
 mod menus;
 mod rotary_encoder;
+mod sequencer_timer;
 mod usb;
 
 bind_interrupts!(struct Irqs {
@@ -43,7 +44,10 @@ const COLS: usize = 3;
 const ROWS: usize = 4;
 type KeyGrid<T> = [[T; COLS]; ROWS];
 
-static SPEED_MS: AtomicU32 = AtomicU32::new(120);
+static PLAY: AtomicBool = AtomicBool::new(false);
+static BPM: AtomicU32 = AtomicU32::new(120);
+static TIMING: AtomicU8 = AtomicU8::new(0);
+static SWING: AtomicU32 = AtomicU32::new(0);
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {

@@ -1,7 +1,24 @@
 use crate::{
     display::MonoDisplay,
-    menus::{Menu, MenuItem, MenuItemRender, MenuItemState, render_menu_heading, render_menu_item},
+    menus::{
+        Menu, MenuItem, MenuItemRender, MenuItemState, Stringable, render_menu_heading,
+        render_menu_item,
+    },
+    sequencer_timer::TimingOption,
 };
+
+impl Stringable for TimingOption {
+    fn as_str(&self) -> &str {
+        match self {
+            TimingOption::Quarter => "1/4",
+            TimingOption::QuarterTriplet => "1/4 triplet",
+            TimingOption::Eighth => "1/8",
+            TimingOption::EighthTriplet => "1/8 triplet",
+            TimingOption::Sixteenth => "1/16",
+            TimingOption::SixteenthTriplet => "1/16 triplet",
+        }
+    }
+}
 
 pub struct SequencerMenu<'a, const SIZE: usize> {
     index: usize,
