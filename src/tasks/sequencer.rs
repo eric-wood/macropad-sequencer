@@ -1,7 +1,6 @@
-use core::sync::atomic::Ordering;
-
 use crate::{
-    BPM, COLS, PLAY, SWING, TIMING,
+    COLS,
+    menus::{SEQUENCER_MENU, SequencerMenuValue},
     sequencer_timer::{SequencerConfig, SequencerTimer},
     tasks::{CONTROLS_CHANNEL, controls::ControlEvent},
 };
@@ -12,8 +11,19 @@ pub async fn sequencer() {
     let cols = COLS as u8;
 
     let mut timer = SequencerTimer::new();
+    let mut play = false;
     loop {
-        let play = PLAY.load(Ordering::Relaxed);
+        SEQUENCER_MENU.lock(|value| {
+            let SequencerMenuValue {
+                play: temp_play,
+                bpm,
+                timing,
+                swing,
+            } = value.unwrap();
+            timer.set(SequencerConfig { bpm, timing, swing });
+            play = temp_play;
+        });
+
         if play {
             let coord = (step % cols, step / cols);
             CONTROLS_CHANNEL
@@ -21,12 +31,6 @@ pub async fn sequencer() {
                 .await;
 
             step = (step + 1).rem_euclid(12);
-
-            timer.set(SequencerConfig {
-                bpm: BPM.load(Ordering::Relaxed),
-                timing: TIMING.load(Ordering::Relaxed).into(),
-                swing: SWING.load(Ordering::Relaxed),
-            });
         }
 
         timer.next_step().await;

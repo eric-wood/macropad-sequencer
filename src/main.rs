@@ -44,11 +44,6 @@ const COLS: usize = 3;
 const ROWS: usize = 4;
 type KeyGrid<T> = [[T; COLS]; ROWS];
 
-static PLAY: AtomicBool = AtomicBool::new(false);
-static BPM: AtomicU32 = AtomicU32::new(120);
-static TIMING: AtomicU8 = AtomicU8::new(0);
-static SWING: AtomicU32 = AtomicU32::new(0);
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let p = embassy_rp::init(Default::default());

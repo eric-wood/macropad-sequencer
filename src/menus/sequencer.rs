@@ -1,9 +1,9 @@
+use core::cell::RefCell;
+
+use embassy_sync::blocking_mutex::{Mutex, raw::ThreadModeRawMutex};
+
 use crate::{
-    display::MonoDisplay,
-    menus::{
-        Menu, MenuItem, MenuItemRender, MenuItemState, Stringable, render_menu_heading,
-        render_menu_item,
-    },
+    menus::{BooleanMenuItem, EnumMenuItem, NumericMenuItem, Stringable},
     sequencer_timer::TimingOption,
 };
 
@@ -20,68 +20,101 @@ impl Stringable for TimingOption {
     }
 }
 
-pub struct SequencerMenu<'a, const SIZE: usize> {
-    index: usize,
-    items: [&'a mut dyn MenuItem; SIZE],
-    selecting: bool,
+#[derive(Clone, Copy)]
+pub struct SequencerMenuValue {
+    pub play: bool,
+    pub bpm: u32,
+    pub timing: TimingOption,
+    pub swing: u32,
 }
 
-impl<'a, const SIZE: usize> SequencerMenu<'a, SIZE> {
-    pub fn new(items: [&'a mut dyn MenuItem; SIZE]) -> Self {
-        let index = 0;
-        let selecting = false;
+impl Default for SequencerMenuValue {
+    fn default() -> Self {
+        Self {
+            play: false,
+            bpm: 120,
+            timing: TimingOption::Eighth,
+            swing: 0,
+        }
+    }
+}
+
+type SequencerMenuMutex = Mutex<ThreadModeRawMutex, Option<SequencerMenuValue>>;
+pub static SEQUENCER_MENU: SequencerMenuMutex = Mutex::new(None);
+
+pub struct SequencerMenuItems<'a> {
+    pub play_menu: BooleanMenuItem<'a>,
+    pub bpm_menu: NumericMenuItem<'a>,
+    pub timing_menu: EnumMenuItem<'a, 6, TimingOption>,
+    pub swing_menu: NumericMenuItem<'a>,
+}
+
+impl<'a> SequencerMenuItems<'a> {
+    pub fn new() -> Self {
+        let defaults = SequencerMenuValue::default();
+        let play_menu =
+            BooleanMenuItem::new("STATUS", "PLAYING", "PAUSED", defaults.play, &|value| {
+                unsafe {
+                    SEQUENCER_MENU.lock_mut(|inner| {
+                        if let Some(menu_value) = inner {
+                            menu_value.play = value;
+                        }
+                    })
+                };
+            });
+
+        let bpm_menu = NumericMenuItem::new("BPM", defaults.bpm, &|value| {
+            unsafe {
+                SEQUENCER_MENU.lock_mut(|inner| {
+                    if let Some(menu_value) = inner {
+                        menu_value.bpm = value;
+                    }
+                })
+            };
+        });
+
+        let timing_menu = EnumMenuItem::new(
+            "TIMING",
+            [
+                TimingOption::Quarter,
+                TimingOption::QuarterTriplet,
+                TimingOption::Eighth,
+                TimingOption::EighthTriplet,
+                TimingOption::Sixteenth,
+                TimingOption::SixteenthTriplet,
+            ],
+            defaults.timing,
+            &|value| {
+                unsafe {
+                    SEQUENCER_MENU.lock_mut(|inner| {
+                        if let Some(menu_value) = inner {
+                            menu_value.timing = value;
+                        }
+                    })
+                };
+            },
+        );
+        let swing_menu = NumericMenuItem::new("SWING", defaults.swing, &|value| {
+            unsafe {
+                SEQUENCER_MENU.lock_mut(|inner| {
+                    if let Some(menu_value) = inner {
+                        menu_value.swing = value;
+                    }
+                })
+            };
+        });
+
+        unsafe {
+            SEQUENCER_MENU.lock_mut(|value| {
+                *value = Some(defaults);
+            });
+        }
 
         Self {
-            index,
-            items,
-            selecting,
-        }
-    }
-}
-
-impl<'a, const SIZE: usize> Menu for SequencerMenu<'a, SIZE> {
-    fn title(&self) -> &str {
-        "Sequencer"
-    }
-
-    fn on_change(&mut self, step: i32) {
-        if self.selecting {
-            let next = (self.index as i32 + step).rem_euclid(SIZE as i32);
-            self.index = next as usize;
-        } else {
-            self.items[self.index].on_change(step);
-        }
-    }
-
-    fn on_select(&mut self) {
-        self.selecting = !self.selecting;
-    }
-
-    fn render(&mut self, display: &mut MonoDisplay) {
-        render_menu_heading(display, self.title());
-
-        for (i, item) in self.items.iter_mut().enumerate() {
-            let (title, value) = item.as_str();
-
-            let state = if i == self.index {
-                if self.selecting {
-                    MenuItemState::Selecting
-                } else {
-                    MenuItemState::Selected
-                }
-            } else {
-                MenuItemState::None
-            };
-
-            render_menu_item(
-                display,
-                &MenuItemRender {
-                    position: i,
-                    title,
-                    value,
-                    state,
-                },
-            );
+            play_menu,
+            bpm_menu,
+            timing_menu,
+            swing_menu,
         }
     }
 }

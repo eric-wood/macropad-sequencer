@@ -1,10 +1,4 @@
-use core::sync::atomic::Ordering;
-
-use crate::{
-    BPM, PLAY, SWING, TIMING,
-    menus::{BooleanMenuItem, EnumMenuItem, Menu, NumericMenuItem, SequencerMenu},
-    sequencer_timer::TimingOption,
-};
+use crate::menus::{Menu, SequencerMenuItems};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 
 use crate::display::Display;
@@ -17,11 +11,11 @@ pub enum DisplayUpdate {
 }
 
 struct Menus<'a> {
-    pub sequencer: SequencerMenu<'a, 4>,
+    pub sequencer: Menu<'a, 4>,
 }
 
 impl<'a> Menus<'a> {
-    pub fn new(sequencer: SequencerMenu<'a, 4>) -> Self {
+    pub fn new(sequencer: Menu<'a, 4>) -> Self {
         Self { sequencer }
     }
 }
@@ -29,29 +23,17 @@ impl<'a> Menus<'a> {
 #[embassy_executor::task]
 pub async fn drive_display(mut display: Display) {
     display.init();
-    TIMING.store(TimingOption::Quarter.into(), Ordering::Relaxed);
-    let mut play_menu = BooleanMenuItem::new("STATUS", "PLAYING", "PAUSED", &PLAY);
-    let mut bpm_menu = NumericMenuItem::new("BPM", &BPM);
-    let mut timing_menu = EnumMenuItem::new(
-        "TIMING",
-        [
-            TimingOption::Quarter,
-            TimingOption::QuarterTriplet,
-            TimingOption::Eighth,
-            TimingOption::EighthTriplet,
-            TimingOption::Sixteenth,
-            TimingOption::SixteenthTriplet,
-        ],
-        &TIMING,
-    );
-    let mut swing_menu = NumericMenuItem::new("SWING", &SWING);
 
-    let sequencer = SequencerMenu::new([
-        &mut play_menu,
-        &mut bpm_menu,
-        &mut timing_menu,
-        &mut swing_menu,
-    ]);
+    let mut sequencer_items = SequencerMenuItems::new();
+    let sequencer = Menu::new(
+        "Sequencer",
+        [
+            &mut sequencer_items.play_menu,
+            &mut sequencer_items.bpm_menu,
+            &mut sequencer_items.timing_menu,
+            &mut sequencer_items.swing_menu,
+        ],
+    );
 
     let mut menus = Menus::new(sequencer);
     menus.sequencer.render(&mut display.display);

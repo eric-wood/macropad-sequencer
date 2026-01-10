@@ -3,7 +3,7 @@ use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::{COLS, ROWS};
 
-#[derive(Clone, Copy, IntoPrimitive, FromPrimitive)]
+#[derive(Clone, Copy, IntoPrimitive, FromPrimitive, Default)]
 #[repr(u8)]
 pub enum TimingOption {
     #[default]
