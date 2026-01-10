@@ -1,5 +1,4 @@
 use crate::{
-    COLS,
     menus::{SEQUENCER_MENU, SequencerMenuValue},
     sequencer_timer::{SequencerConfig, SequencerTimer},
     tasks::{CONTROLS_CHANNEL, controls::ControlEvent},
@@ -7,9 +6,6 @@ use crate::{
 
 #[embassy_executor::task]
 pub async fn sequencer() {
-    let mut step: u8 = 0;
-    let cols = COLS as u8;
-
     let mut timer = SequencerTimer::new();
     let mut play = false;
     loop {
@@ -25,12 +21,7 @@ pub async fn sequencer() {
         });
 
         if play {
-            let coord = (step % cols, step / cols);
-            CONTROLS_CHANNEL
-                .send(ControlEvent::SequencerStep { coord })
-                .await;
-
-            step = (step + 1).rem_euclid(12);
+            CONTROLS_CHANNEL.send(ControlEvent::SequencerStep).await;
         }
 
         timer.next_step().await;

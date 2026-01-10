@@ -2,7 +2,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use smart_leds::RGB;
 
 use crate::{
-    COLS, KeyGrid, ROWS,
+    COLS, KeyGrid, NUM_KEYS, ROWS,
     key_leds::Coord,
     menus::{SEQUENCER_MENU, SequencerMenuValue, StepMenuValue},
     tasks::{
@@ -16,7 +16,7 @@ pub static CONTROLS_CHANNEL: Channel<ThreadModeRawMutex, ControlEvent, 10> = Cha
 pub enum ControlEvent {
     Key { pressed: bool, coord: Coord },
     RotaryButton { pressed: bool },
-    SequencerStep { coord: Coord },
+    SequencerStep,
     RotaryEncoder { increment: i32 },
     SequencerMenuChange { value: SequencerMenuValue },
     StepMenuChange { value: StepMenuValue },
@@ -39,6 +39,7 @@ pub async fn read_controls() {
 
     let mut num_keys_pressed = 0;
     let mut selected_step: Option<Coord> = None;
+    let mut step_index: usize = 0;
     let mut step: Coord = (0, 0);
 
     loop {
@@ -78,16 +79,25 @@ pub async fn read_controls() {
                 rotary_press().await;
             }
             ControlEvent::RotaryEncoder { increment } => rotary_change(increment).await,
-            ControlEvent::SequencerStep { coord } => {
+            ControlEvent::SequencerStep => {
                 let prev_color = if step_state[step.1 as usize][step.0 as usize].active {
                     active
                 } else {
                     off
                 };
 
+                step_index = (step_index + 1).rem_euclid(NUM_KEYS);
+                let mut next_step = ((step_index % COLS) as u8, (step_index / COLS) as u8);
+                if num_keys_pressed > 0 {
+                    while !step_state[next_step.1 as usize][next_step.0 as usize].pressed {
+                        step_index = (step_index + 1).rem_euclid(NUM_KEYS);
+                        next_step = ((step_index % COLS) as u8, (step_index / COLS) as u8);
+                    }
+                }
+
                 update_key_light(step, prev_color).await;
-                update_key_light(coord, current).await;
-                step = coord;
+                update_key_light(next_step, current).await;
+                step = next_step;
             }
             ControlEvent::SequencerMenuChange { value } => unsafe {
                 SEQUENCER_MENU.lock_mut(|inner| *inner = Some(value));

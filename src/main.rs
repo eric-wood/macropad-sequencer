@@ -1,8 +1,6 @@
 #![no_std]
 #![no_main]
 
-use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU32};
-
 use embassy_executor::Spawner;
 use embassy_rp::{
     Peri, bind_interrupts,
@@ -40,8 +38,9 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => PioInterruptHandler<PIO0>;
 });
 
-const COLS: usize = 3;
-const ROWS: usize = 4;
+static COLS: usize = 3;
+static ROWS: usize = 4;
+static NUM_KEYS: usize = ROWS * COLS;
 type KeyGrid<T> = [[T; COLS]; ROWS];
 
 #[embassy_executor::main]
