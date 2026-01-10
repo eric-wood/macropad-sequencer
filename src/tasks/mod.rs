@@ -6,7 +6,7 @@ mod rotary;
 mod sequencer;
 
 pub use buttons::{read_button, read_key};
-pub use controls::{CONTROLS_CHANNEL, read_controls};
+pub use controls::{CONTROLS_CHANNEL, ControlEvent, read_controls};
 pub use display::drive_display;
 pub use lights::update_lights;
 pub use rotary::read_rotary_encoder;

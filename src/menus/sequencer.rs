@@ -1,5 +1,3 @@
-use core::cell::RefCell;
-
 use embassy_sync::blocking_mutex::{Mutex, raw::ThreadModeRawMutex};
 
 use crate::{
@@ -43,37 +41,34 @@ type SequencerMenuMutex = Mutex<ThreadModeRawMutex, Option<SequencerMenuValue>>;
 pub static SEQUENCER_MENU: SequencerMenuMutex = Mutex::new(None);
 
 pub struct SequencerMenuItems<'a> {
-    pub play_menu: BooleanMenuItem<'a>,
-    pub bpm_menu: NumericMenuItem<'a>,
-    pub timing_menu: EnumMenuItem<'a, 6, TimingOption>,
-    pub swing_menu: NumericMenuItem<'a>,
+    pub play_menu: BooleanMenuItem<'a, SequencerMenuValue>,
+    pub bpm_menu: NumericMenuItem<'a, SequencerMenuValue>,
+    pub timing_menu: EnumMenuItem<'a, SequencerMenuValue, 6, TimingOption>,
+    pub swing_menu: NumericMenuItem<'a, SequencerMenuValue>,
 }
 
 impl<'a> SequencerMenuItems<'a> {
     pub fn new() -> Self {
         let defaults = SequencerMenuValue::default();
-        let play_menu =
-            BooleanMenuItem::new("STATUS", "PLAYING", "PAUSED", defaults.play, &|value| {
-                unsafe {
-                    SEQUENCER_MENU.lock_mut(|inner| {
-                        if let Some(menu_value) = inner {
-                            menu_value.play = value;
-                        }
-                    })
-                };
-            });
+        let play_menu = BooleanMenuItem::<SequencerMenuValue>::new(
+            "STATUS",
+            "PLAYING",
+            "PAUSED",
+            defaults.play,
+            &|menu_value, value| {
+                menu_value.play = value;
+            },
+        );
 
-        let bpm_menu = NumericMenuItem::new("BPM", defaults.bpm, &|value| {
-            unsafe {
-                SEQUENCER_MENU.lock_mut(|inner| {
-                    if let Some(menu_value) = inner {
-                        menu_value.bpm = value;
-                    }
-                })
-            };
-        });
+        let bpm_menu = NumericMenuItem::<SequencerMenuValue>::new(
+            "BPM",
+            defaults.bpm,
+            &|menu_value, value| {
+                menu_value.bpm = value;
+            },
+        );
 
-        let timing_menu = EnumMenuItem::new(
+        let timing_menu = EnumMenuItem::<'_, SequencerMenuValue, 6, TimingOption>::new(
             "TIMING",
             [
                 TimingOption::Quarter,
@@ -84,25 +79,17 @@ impl<'a> SequencerMenuItems<'a> {
                 TimingOption::SixteenthTriplet,
             ],
             defaults.timing,
-            &|value| {
-                unsafe {
-                    SEQUENCER_MENU.lock_mut(|inner| {
-                        if let Some(menu_value) = inner {
-                            menu_value.timing = value;
-                        }
-                    })
-                };
+            &|menu_value, value| {
+                menu_value.timing = value;
             },
         );
-        let swing_menu = NumericMenuItem::new("SWING", defaults.swing, &|value| {
-            unsafe {
-                SEQUENCER_MENU.lock_mut(|inner| {
-                    if let Some(menu_value) = inner {
-                        menu_value.swing = value;
-                    }
-                })
-            };
-        });
+        let swing_menu = NumericMenuItem::<SequencerMenuValue>::new(
+            "SWING",
+            defaults.swing,
+            &|menu_value, value| {
+                menu_value.swing = value;
+            },
+        );
 
         unsafe {
             SEQUENCER_MENU.lock_mut(|value| {

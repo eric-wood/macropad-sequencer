@@ -1,10 +1,8 @@
 use embassy_time::Timer;
-use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::{COLS, ROWS};
 
-#[derive(Clone, Copy, IntoPrimitive, FromPrimitive, Default)]
-#[repr(u8)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub enum TimingOption {
     #[default]
     Quarter,

@@ -1,9 +1,7 @@
-use crate::{
-    menus::{BooleanMenuItem, EnumMenuItem, NumericMenuItem, Stringable},
-    sequencer_timer::TimingOption,
-};
+use crate::menus::{EnumMenuItem, NumericMenuItem, Stringable};
 
-enum Note {
+#[derive(Clone, Copy, PartialEq)]
+pub enum Note {
     A,
     BFlat,
     B,
@@ -37,33 +35,75 @@ impl Stringable for Note {
     }
 }
 
-//pub struct StepMenuItems<'a> {
-//    pub note_menu: EnumMenuItem<'a, 12>,
-//    pub octave_menu: NumericMenuItem<'a>,
-//    pub velocity_menu: NumericMenuItem<'a>,
-//}
-//
-//impl<'a> StepMenuItems<'a> {
-//    pub fn new() -> Self {
-//
-//        let note_menu = EnumMenuItem::new("NOTE", &[
-//            Note::BFlat
-//            Note::B,
-//            Note::C,
-//            Note::CSharp,
-//            Note::D,
-//            Note::EFlat,
-//            Note::E,
-//            Note::F,
-//            Note::FSharp,
-//            Note::G,
-//            Note::AFlat,
-//        ]);
-//
-//        let octave_menu = NumericMenuItem::new()
-//
-//        Self {
-//            note_menu,
-//        }
-//    }
-//}
+#[derive(Clone, Copy)]
+pub struct StepMenuValue {
+    pub note: Note,
+    pub octave: u32,
+    pub velocity: u32,
+}
+
+impl Default for StepMenuValue {
+    fn default() -> Self {
+        Self {
+            note: Note::C,
+            octave: 1,
+            velocity: 100,
+        }
+    }
+}
+
+pub struct StepMenuItems<'a> {
+    pub note_menu: EnumMenuItem<'a, StepMenuValue, 12, Note>,
+    pub octave_menu: NumericMenuItem<'a, StepMenuValue>,
+    pub velocity_menu: NumericMenuItem<'a, StepMenuValue>,
+}
+
+impl<'a> StepMenuItems<'a> {
+    pub fn new() -> Self {
+        let defaults = StepMenuValue::default();
+
+        let note_menu = EnumMenuItem::<'_, StepMenuValue, 12, Note>::new(
+            "NOTE",
+            [
+                Note::A,
+                Note::BFlat,
+                Note::B,
+                Note::C,
+                Note::CSharp,
+                Note::D,
+                Note::EFlat,
+                Note::E,
+                Note::F,
+                Note::FSharp,
+                Note::G,
+                Note::AFlat,
+            ],
+            defaults.note,
+            &|menu_value, value| {
+                menu_value.note = value;
+            },
+        );
+
+        let octave_menu = NumericMenuItem::<StepMenuValue>::new(
+            "OCTAVE",
+            defaults.octave,
+            &|menu_value, value| {
+                menu_value.octave = value;
+            },
+        );
+
+        let velocity_menu = NumericMenuItem::<StepMenuValue>::new(
+            "VELOCITY",
+            defaults.velocity,
+            &|menu_value, value| {
+                menu_value.velocity = value;
+            },
+        );
+
+        Self {
+            note_menu,
+            octave_menu,
+            velocity_menu,
+        }
+    }
+}

@@ -1,4 +1,7 @@
-use crate::menus::{Menu, SequencerMenuItems};
+use crate::{
+    menus::{Menu, SequencerMenuItems, SequencerMenuValue, StepMenuItems, StepMenuValue},
+    tasks::{CONTROLS_CHANNEL, ControlEvent},
+};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 
 use crate::display::Display;
@@ -8,16 +11,7 @@ pub static DISPLAY_CHANNEL: Channel<ThreadModeRawMutex, DisplayUpdate, 3> = Chan
 pub enum DisplayUpdate {
     RotaryMove { increment: i32 },
     RotaryPress,
-}
-
-struct Menus<'a> {
-    pub sequencer: Menu<'a, 4>,
-}
-
-impl<'a> Menus<'a> {
-    pub fn new(sequencer: Menu<'a, 4>) -> Self {
-        Self { sequencer }
-    }
+    StepMenu { value: Option<StepMenuValue> },
 }
 
 #[embassy_executor::task]
@@ -25,32 +19,82 @@ pub async fn drive_display(mut display: Display) {
     display.init();
 
     let mut sequencer_items = SequencerMenuItems::new();
-    let sequencer = Menu::new(
+    let mut sequencer_menu = Menu::new(
         "Sequencer",
+        SequencerMenuValue::default(),
         [
             &mut sequencer_items.play_menu,
             &mut sequencer_items.bpm_menu,
             &mut sequencer_items.timing_menu,
             &mut sequencer_items.swing_menu,
         ],
+        &|value| {
+            let _ = CONTROLS_CHANNEL.try_send(ControlEvent::SequencerMenuChange { value: *value });
+        },
     );
 
-    let mut menus = Menus::new(sequencer);
-    menus.sequencer.render(&mut display.display);
+    let mut step_items = StepMenuItems::new();
+    let mut step_menu = Menu::new(
+        "Step",
+        StepMenuValue::default(),
+        [
+            &mut step_items.note_menu,
+            &mut step_items.octave_menu,
+            &mut step_items.velocity_menu,
+        ],
+        &|_| {},
+    );
+
+    sequencer_menu.render(&mut display.display);
     display.flush();
+    let mut show_step = false;
 
     loop {
         match DISPLAY_CHANNEL.receive().await {
             DisplayUpdate::RotaryMove { increment } => {
-                menus.sequencer.on_change(increment);
+                if show_step {
+                    step_menu.on_change(increment).await;
+                } else {
+                    sequencer_menu.on_change(increment).await;
+                }
             }
             DisplayUpdate::RotaryPress => {
-                menus.sequencer.on_select();
+                if show_step {
+                    step_menu.on_select();
+                } else {
+                    sequencer_menu.on_select();
+                }
+            }
+            DisplayUpdate::StepMenu { value } => {
+                show_step = value.is_some();
+                if let Some(value) = value {
+                    step_items = StepMenuItems::new();
+                    step_items.note_menu.set(value.note);
+                    step_items.octave_menu.value = value.octave;
+                    step_items.velocity_menu.value = value.velocity;
+                    step_menu = Menu::new(
+                        "Step",
+                        StepMenuValue::default(),
+                        [
+                            &mut step_items.note_menu,
+                            &mut step_items.octave_menu,
+                            &mut step_items.velocity_menu,
+                        ],
+                        &|value| {
+                            let _ = CONTROLS_CHANNEL
+                                .try_send(ControlEvent::StepMenuChange { value: *value });
+                        },
+                    );
+                }
             }
         }
 
         display.clear();
-        menus.sequencer.render(&mut display.display);
+        if show_step {
+            step_menu.render(&mut display.display);
+        } else {
+            sequencer_menu.render(&mut display.display);
+        }
         display.flush();
     }
 }
