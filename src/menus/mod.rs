@@ -4,7 +4,7 @@ mod step;
 
 pub use render::*;
 pub use sequencer::{SEQUENCER_MENU, SequencerMenuItems, SequencerMenuValue};
-pub use step::{StepMenuItems, StepMenuValue};
+pub use step::{Note, StepMenuItems, StepMenuValue};
 
 use crate::display::MonoDisplay;
 

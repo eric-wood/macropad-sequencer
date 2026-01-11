@@ -8,6 +8,7 @@ use crate::{
     tasks::{
         display::{DISPLAY_CHANNEL, DisplayUpdate},
         lights::{LIGHTS_CHANNEL, LedUpdate},
+        usb_midi::{MIDI_CHANNEL, MidiEvent},
     },
 };
 
@@ -42,6 +43,8 @@ pub async fn read_controls() {
     let mut selected_step: Option<Coord> = None;
     let mut step_index: usize = 0;
     let mut step: Coord = (0, 0);
+    let mut last_note: Option<StepMenuValue> = None;
+    let mut play = false;
 
     loop {
         match CONTROLS_CHANNEL.receive().await {
@@ -81,11 +84,13 @@ pub async fn read_controls() {
             }
             ControlEvent::RotaryEncoder { increment } => rotary_change(increment).await,
             ControlEvent::SequencerStep => {
-                let prev_color = if step_state[step.1 as usize][step.0 as usize].active {
-                    active
-                } else {
-                    off
-                };
+                let state = step_state[step.1 as usize][step.0 as usize];
+
+                if let Some(value) = last_note {
+                    send_note(false, value).await;
+                }
+
+                let prev_color = if state.active { active } else { off };
 
                 let next_step = if num_keys_pressed > 0 {
                     step_index = (step_index + 1).rem_euclid(NUM_KEYS);
@@ -100,12 +105,26 @@ pub async fn read_controls() {
                     coord_from_index(step_index)
                 };
 
+                let state = step_state[next_step.1 as usize][next_step.0 as usize];
+                last_note = Some(state.value);
+
+                if state.active || num_keys_pressed > 0 {
+                    send_note(true, state.value).await;
+                }
+
                 update_key_light(step, prev_color).await;
                 update_key_light(next_step, current).await;
                 step = next_step;
             }
             ControlEvent::SequencerMenuChange { value } => unsafe {
                 num_steps = value.steps as usize;
+                if play
+                    && !value.play
+                    && let Some(note) = last_note
+                {
+                    send_note(false, note).await;
+                }
+                play = value.play;
                 SEQUENCER_MENU.lock_mut(|inner| *inner = Some(value));
             },
             ControlEvent::StepMenuChange { value } => {
@@ -119,6 +138,17 @@ pub async fn read_controls() {
 
 fn coord_from_index(index: usize) -> Coord {
     ((index % COLS) as u8, (index / COLS) as u8)
+}
+
+async fn send_note(on: bool, value: StepMenuValue) {
+    MIDI_CHANNEL
+        .send(MidiEvent::Note {
+            on,
+            note: value.note,
+            octave: value.octave as u8,
+            velocity: value.velocity as u8,
+        })
+        .await;
 }
 
 async fn set_step_menu(value: Option<StepMenuValue>) {

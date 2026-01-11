@@ -7,22 +7,16 @@ use embassy_rp::{
     gpio::{AnyPin, Level, Output},
     peripherals::{PIO0, USB},
     pio::InterruptHandler as PioInterruptHandler,
-    usb::{Driver, Instance, InterruptHandler as UsbInterruptHandler},
+    usb::InterruptHandler as UsbInterruptHandler,
 };
-use embassy_time::{Duration, Timer};
-use embassy_usb::{class::midi::MidiClass, driver::EndpointError};
+use embassy_time::Timer;
 mod tasks;
 use tasks::{read_controls, read_key};
 mod display;
 use crate::{
     board::{Board, Peripherals},
-    tasks::{drive_display, read_button, read_rotary_encoder, sequencer, update_lights},
+    tasks::{drive_display, read_button, read_rotary_encoder, sequencer, update_lights, usb_midi},
 };
-use midi_convert::{
-    midi_types::{MidiMessage, Note},
-    render_slice::MidiRenderSlice,
-};
-use usbd_midi::{CableNumber, UsbMidiEventPacket};
 
 use {defmt_rtt as _, panic_probe as _};
 mod board;
@@ -31,7 +25,6 @@ mod key_leds;
 mod menus;
 mod rotary_encoder;
 mod sequencer_timer;
-mod usb;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
@@ -81,6 +74,7 @@ async fn main(spawner: Spawner) {
         .unwrap();
     spawner.spawn(sequencer()).unwrap();
     spawner.spawn(drive_display(board.display)).unwrap();
+    spawner.spawn(usb_midi(p.USB)).unwrap();
 
     for (y, row) in board.keys.into_iter().enumerate() {
         for (x, input) in row.into_iter().enumerate() {
@@ -90,87 +84,8 @@ async fn main(spawner: Spawner) {
 
     let mut led = Output::new(p.PIN_13, Level::Low);
 
-    //let driver = embassy_rp::usb::Driver::new(p.USB, Irqs);
-    //let mut usb_config = embassy_usb::Config::new(0xc0de, 0xcafe);
-    //usb_config.manufacturer = Some("Heuristic Industries");
-    //usb_config.product = Some("Macropad");
-    //usb_config.serial_number = Some("123456789");
-    //usb_config.max_power = 100;
-    //usb_config.max_packet_size_0 = 64;
-
-    //let mut config_descriptor = [0; 256];
-    //let mut bos_descriptor = [0; 256];
-    //let mut control_buf = [0; 64];
-
-    //let mut usb_builder = embassy_usb::Builder::new(
-    //    driver,
-    //    usb_config,
-    //    &mut config_descriptor,
-    //    &mut bos_descriptor,
-    //    &mut [], // no msos descriptors
-    //    &mut control_buf,
-    //);
-
-    //let mut class = MidiClass::new(&mut usb_builder, 1, 1, 64);
-    //let mut usb = usb_builder.build();
-    //let usb_fut = usb.run();
-
-    //let midi_fut = async {
-    //    loop {
-    //        class.wait_connection().await;
-    //        let _ = midi_echo(&mut class, &mut led).await;
-    //    }
-    //};
-
-    //join(usb_fut, midi_fut).await;
     loop {
         Timer::after_millis(500).await;
         led.toggle();
-    }
-}
-
-struct Disconnected {}
-
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
-        match val {
-            EndpointError::BufferOverflow => defmt::panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
-        }
-    }
-}
-
-async fn midi_echo<'d, T: Instance + 'd>(
-    class: &mut MidiClass<'d, Driver<'d, T>>,
-    led: &mut Output<'_>,
-) -> Result<(), Disconnected> {
-    //let mut buf = [0; 64];
-
-    let on_message = MidiMessage::NoteOn(1.into(), Note::C0, 0x34.into());
-    let mut on_buffer = [0u8; 3];
-    on_message.render_slice(&mut on_buffer);
-    let on_packet =
-        UsbMidiEventPacket::try_from_payload_bytes(CableNumber::Cable0, &on_buffer).unwrap();
-
-    let off_message = MidiMessage::NoteOff(1.into(), Note::C0, 0x34.into());
-    let mut off_buffer = [0u8; 3];
-    off_message.render_slice(&mut off_buffer);
-    let off_packet =
-        UsbMidiEventPacket::try_from_payload_bytes(CableNumber::Cable0, &off_buffer).unwrap();
-
-    loop {
-        led.set_high();
-        class.write_packet(on_packet.as_raw_bytes()).await?;
-        Timer::after(Duration::from_millis(500)).await;
-
-        led.set_low();
-        class.write_packet(off_packet.as_raw_bytes()).await?;
-        Timer::after(Duration::from_millis(500)).await;
-
-        //let n = class.read_packet(&mut buf).await?;
-        //let data = &buf[..n];
-
-        //info!("data: {:x}", data);
-        //class.write_packet(data).await?;
     }
 }
