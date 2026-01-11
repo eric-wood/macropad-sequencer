@@ -1,7 +1,5 @@
 use embassy_time::Timer;
 
-use crate::{COLS, ROWS};
-
 #[derive(Clone, Copy, Default, PartialEq)]
 pub enum TimingOption {
     #[default]
@@ -13,12 +11,9 @@ pub enum TimingOption {
     SixteenthTriplet,
 }
 
-const NUM_STEPS: usize = ROWS * COLS;
-
 pub struct SequencerConfig {
     pub bpm: u32,
     pub timing: TimingOption,
-    pub swing: u32,
 }
 
 pub struct SequencerTimer {
@@ -31,7 +26,6 @@ impl SequencerTimer {
         let config = SequencerConfig {
             bpm: 120,
             timing: TimingOption::Quarter,
-            swing: 0,
         };
 
         let speed_ms = config_to_ms(&config);

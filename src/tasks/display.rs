@@ -26,7 +26,7 @@ pub async fn drive_display(mut display: Display) {
             &mut sequencer_items.play_menu,
             &mut sequencer_items.bpm_menu,
             &mut sequencer_items.timing_menu,
-            &mut sequencer_items.swing_menu,
+            &mut sequencer_items.steps_menu,
         ],
         &|value| {
             let _ = CONTROLS_CHANNEL.try_send(ControlEvent::SequencerMenuChange { value: *value });

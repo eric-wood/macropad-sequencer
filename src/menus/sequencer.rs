@@ -23,7 +23,7 @@ pub struct SequencerMenuValue {
     pub play: bool,
     pub bpm: u32,
     pub timing: TimingOption,
-    pub swing: u32,
+    pub steps: u32,
 }
 
 impl Default for SequencerMenuValue {
@@ -32,7 +32,7 @@ impl Default for SequencerMenuValue {
             play: false,
             bpm: 120,
             timing: TimingOption::Eighth,
-            swing: 0,
+            steps: 12,
         }
     }
 }
@@ -44,7 +44,7 @@ pub struct SequencerMenuItems<'a> {
     pub play_menu: BooleanMenuItem<'a, SequencerMenuValue>,
     pub bpm_menu: NumericMenuItem<'a, SequencerMenuValue>,
     pub timing_menu: EnumMenuItem<'a, SequencerMenuValue, 6, TimingOption>,
-    pub swing_menu: NumericMenuItem<'a, SequencerMenuValue>,
+    pub steps_menu: NumericMenuItem<'a, SequencerMenuValue>,
 }
 
 impl<'a> SequencerMenuItems<'a> {
@@ -83,11 +83,11 @@ impl<'a> SequencerMenuItems<'a> {
                 menu_value.timing = value;
             },
         );
-        let swing_menu = NumericMenuItem::<SequencerMenuValue>::new(
-            "SWING",
-            defaults.swing,
+        let steps_menu = NumericMenuItem::<SequencerMenuValue>::new(
+            "STEPS",
+            defaults.steps,
             &|menu_value, value| {
-                menu_value.swing = value;
+                menu_value.steps = value;
             },
         );
 
@@ -101,7 +101,7 @@ impl<'a> SequencerMenuItems<'a> {
             play_menu,
             bpm_menu,
             timing_menu,
-            swing_menu,
+            steps_menu,
         }
     }
 }

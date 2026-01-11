@@ -37,6 +37,7 @@ pub async fn read_controls() {
     let off = RGB { r: 0, g: 0, b: 0 };
     let current = RGB { r: 32, g: 0, b: 0 };
 
+    let mut num_steps = 12;
     let mut num_keys_pressed = 0;
     let mut selected_step: Option<Coord> = None;
     let mut step_index: usize = 0;
@@ -86,20 +87,25 @@ pub async fn read_controls() {
                     off
                 };
 
-                step_index = (step_index + 1).rem_euclid(NUM_KEYS);
-                let mut next_step = ((step_index % COLS) as u8, (step_index / COLS) as u8);
-                if num_keys_pressed > 0 {
-                    while !step_state[next_step.1 as usize][next_step.0 as usize].pressed {
+                let next_step = if num_keys_pressed > 0 {
+                    step_index = (step_index + 1).rem_euclid(NUM_KEYS);
+                    let mut next = coord_from_index(step_index);
+                    while !step_state[next.1 as usize][next.0 as usize].pressed {
                         step_index = (step_index + 1).rem_euclid(NUM_KEYS);
-                        next_step = ((step_index % COLS) as u8, (step_index / COLS) as u8);
+                        next = coord_from_index(step_index)
                     }
-                }
+                    next
+                } else {
+                    step_index = (step_index + 1).rem_euclid(num_steps);
+                    coord_from_index(step_index)
+                };
 
                 update_key_light(step, prev_color).await;
                 update_key_light(next_step, current).await;
                 step = next_step;
             }
             ControlEvent::SequencerMenuChange { value } => unsafe {
+                num_steps = value.steps as usize;
                 SEQUENCER_MENU.lock_mut(|inner| *inner = Some(value));
             },
             ControlEvent::StepMenuChange { value } => {
@@ -109,6 +115,10 @@ pub async fn read_controls() {
             }
         }
     }
+}
+
+fn coord_from_index(index: usize) -> Coord {
+    ((index % COLS) as u8, (index / COLS) as u8)
 }
 
 async fn set_step_menu(value: Option<StepMenuValue>) {

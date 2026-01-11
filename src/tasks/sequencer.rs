@@ -14,9 +14,9 @@ pub async fn sequencer() {
                 play: temp_play,
                 bpm,
                 timing,
-                swing,
+                steps: _steps,
             } = value.unwrap();
-            timer.set(SequencerConfig { bpm, timing, swing });
+            timer.set(SequencerConfig { bpm, timing });
             play = temp_play;
         });
 
