@@ -1,16 +1,18 @@
 # Macropad Sequencer
 
-A minimal USB MIDI step sequencer that runs on the [Adafruit Macropad](https://www.adafruit.com/product/5128) written in Rust using Embassy.
+A minimal USB MIDI step sequencer that runs on the [Adafruit Macropad](https://www.adafruit.com/product/5128) written in Rust using [Embassy](https://embassy.dev).
 
 This is more of a tech demo than anything else!
 I'm using it to mess around with ideas I have around structuring non-trivial Embassy apps and will probably come back and add more features whenever I need a break from life.
 
 ## Usage
 
+This isn't the ideal hardware interface for a step sequencer, but I've (mostly) done the best with what I have.
+
 - Each key is a step in the sequence
 - Press and release a key to toggle the step on and off
 - Hold a single key down to change the note and velocity
-- Hold down multiple keys to only play
+- Hold down multiple keys to cycle between those notes
 
 ## Flashing
 
@@ -28,3 +30,4 @@ I had to stop hacking on this before it completely consumed my life, but here's 
 - "Gate" (percentage of step note is on)
 - Menu scrolling to support more than 4 options per menu
 - A little synth engine that uses the onboard speaker (need to make use of that second core!)
+- More than 12 steps?
