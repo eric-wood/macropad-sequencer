@@ -15,18 +15,31 @@ use crate::{
 pub static CONTROLS_CHANNEL: Channel<ThreadModeRawMutex, ControlEvent, 10> = Channel::new();
 
 pub enum ControlEvent {
-    Key { pressed: bool, coord: Coord },
-    RotaryButton { pressed: bool },
+    Key {
+        pressed: bool,
+        held: bool,
+        coord: Coord,
+    },
+    RotaryButton {
+        pressed: bool,
+    },
     SequencerStep,
-    RotaryEncoder { increment: i32 },
-    SequencerMenuChange { value: SequencerMenuValue },
-    StepMenuChange { value: StepMenuValue },
+    RotaryEncoder {
+        increment: i32,
+    },
+    SequencerMenuChange {
+        value: SequencerMenuValue,
+    },
+    StepMenuChange {
+        value: StepMenuValue,
+    },
 }
 
 #[derive(Default, Clone, Copy)]
 struct StepState {
     active: bool,
     pressed: bool,
+    held: bool,
     value: StepMenuValue,
 }
 
@@ -48,32 +61,41 @@ pub async fn read_controls() {
 
     loop {
         match CONTROLS_CHANNEL.receive().await {
-            ControlEvent::Key { pressed, coord } => {
+            ControlEvent::Key {
+                pressed,
+                held,
+                coord,
+            } => {
                 let state = &mut step_state[coord.1 as usize][coord.0 as usize];
+                let was_pressed = state.pressed;
+                let was_held = state.held;
+                state.pressed = pressed;
+                state.held = held;
+                if !pressed && was_pressed && !was_held {
+                    state.active = !state.active;
+                    let color = if state.active { active } else { off };
+                    update_key_light(coord, color).await;
+                }
 
                 if !pressed {
-                    state.pressed = false;
                     num_keys_pressed -= 1;
                     if num_keys_pressed != 1 {
                         set_step_menu(None).await;
                     }
-                    continue;
-                }
-
-                state.pressed = true;
-                state.active = !state.active;
-                let color = if state.active { active } else { off };
-                update_key_light(coord, color).await;
-
-                num_keys_pressed += 1;
-                let value = if num_keys_pressed == 1 {
-                    selected_step = Some(coord);
-                    Some(state.value)
                 } else {
-                    selected_step = None;
-                    None
-                };
-                set_step_menu(value).await;
+                    if !was_pressed && pressed {
+                        num_keys_pressed += 1;
+                    }
+                    let value = if num_keys_pressed == 1 && held {
+                        selected_step = Some(coord);
+                        Some(state.value)
+                    } else {
+                        selected_step = None;
+                        None
+                    };
+
+                    set_step_menu(value).await;
+                }
             }
             ControlEvent::RotaryButton { pressed } => {
                 if !pressed {

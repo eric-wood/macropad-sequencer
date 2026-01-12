@@ -2,7 +2,10 @@ use crate::{Irqs, menus::Note};
 use embassy_futures::join::join;
 use embassy_rp::{Peri, peripherals::USB, usb::Driver};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
-use embassy_usb::class::midi::MidiClass;
+use embassy_usb::class::{
+    cdc_acm::{CdcAcmClass, State},
+    midi::MidiClass,
+};
 use midi_convert::{
     midi_types::{MidiMessage, Note as MidiNote},
     render_slice::MidiRenderSlice,
@@ -33,6 +36,7 @@ pub async fn usb_midi(peripheral: Peri<'static, USB>) {
     let mut config_descriptor = [0; 256];
     let mut bos_descriptor = [0; 256];
     let mut control_buf = [0; 64];
+    let mut logger_state = State::new();
 
     let mut usb_builder = embassy_usb::Builder::new(
         driver,
@@ -43,7 +47,10 @@ pub async fn usb_midi(peripheral: Peri<'static, USB>) {
         &mut control_buf,
     );
 
-    let mut class = MidiClass::new(&mut usb_builder, 1, 1, 64);
+    let mut midi_class = MidiClass::new(&mut usb_builder, 1, 1, 64);
+    let logger_class = CdcAcmClass::new(&mut usb_builder, &mut logger_state, 64);
+    let logger_fut = embassy_usb_logger::with_class!(1024, log::LevelFilter::Info, logger_class);
+
     let mut usb = usb_builder.build();
     let usb_fut = usb.run();
 
@@ -68,13 +75,16 @@ pub async fn usb_midi(peripheral: Peri<'static, USB>) {
                     let packet =
                         UsbMidiEventPacket::try_from_payload_bytes(CableNumber::Cable0, &buffer)
                             .unwrap();
-                    class.write_packet(packet.as_raw_bytes()).await.unwrap();
+                    midi_class
+                        .write_packet(packet.as_raw_bytes())
+                        .await
+                        .unwrap();
                 }
             }
         }
     };
 
-    join(usb_fut, midi_fut).await;
+    join(usb_fut, join(logger_fut, midi_fut)).await;
 }
 
 fn convert_note(note: Note, octave: u8) -> MidiNote {

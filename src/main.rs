@@ -25,6 +25,7 @@ mod key_leds;
 mod menus;
 mod rotary_encoder;
 mod sequencer_timer;
+mod toggle_with_hold;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
