@@ -63,6 +63,8 @@ impl<'a> SequencerMenuItems<'a> {
         let bpm_menu = NumericMenuItem::<SequencerMenuValue>::new(
             "BPM",
             defaults.bpm,
+            1,
+            1000,
             &|menu_value, value| {
                 menu_value.bpm = value;
             },
@@ -86,6 +88,8 @@ impl<'a> SequencerMenuItems<'a> {
         let steps_menu = NumericMenuItem::<SequencerMenuValue>::new(
             "STEPS",
             defaults.steps,
+            1,
+            12,
             &|menu_value, value| {
                 menu_value.steps = value;
             },

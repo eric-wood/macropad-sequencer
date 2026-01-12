@@ -96,17 +96,27 @@ pub trait MenuItem<T> {
 
 pub struct NumericMenuItem<'a, T> {
     title: &'a str,
+    min: u32,
+    max: u32,
     pub value: u32,
     buffer: itoa::Buffer,
     callback: &'a dyn Fn(&mut T, u32),
 }
 
 impl<'a, T> NumericMenuItem<'a, T> {
-    pub fn new(title: &'a str, value: u32, on_change: &'a dyn Fn(&mut T, u32)) -> Self {
+    pub fn new(
+        title: &'a str,
+        value: u32,
+        min: u32,
+        max: u32,
+        on_change: &'a dyn Fn(&mut T, u32),
+    ) -> Self {
         let buffer = itoa::Buffer::new();
 
         Self {
             title,
+            min,
+            max,
             value,
             buffer,
             callback: on_change,
@@ -122,8 +132,10 @@ impl<'a, T> MenuItem<T> for NumericMenuItem<'a, T> {
     fn on_change(&mut self, value: &mut T, step: i32) {
         let mut intermediate = self.value as i32;
         intermediate += step;
-        if intermediate < 0 {
-            intermediate = 0;
+        if intermediate < self.min as i32 {
+            intermediate = self.min as i32;
+        } else if intermediate > self.max as i32 {
+            intermediate = self.max as i32;
         }
 
         self.value = intermediate as u32;

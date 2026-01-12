@@ -87,6 +87,8 @@ impl<'a> StepMenuItems<'a> {
         let octave_menu = NumericMenuItem::<StepMenuValue>::new(
             "OCTAVE",
             defaults.octave,
+            0,
+            9,
             &|menu_value, value| {
                 menu_value.octave = value;
             },
@@ -95,6 +97,8 @@ impl<'a> StepMenuItems<'a> {
         let velocity_menu = NumericMenuItem::<StepMenuValue>::new(
             "VELOCITY",
             defaults.velocity,
+            0,
+            128,
             &|menu_value, value| {
                 menu_value.velocity = value;
             },
