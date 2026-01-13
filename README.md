@@ -5,6 +5,11 @@ A minimal USB MIDI step sequencer that runs on the [Adafruit Macropad](https://w
 This is more of a tech demo than anything else!
 I'm using it to mess around with ideas I have around structuring non-trivial Embassy apps and will probably come back and add more features whenever I need a break from life.
 
+Quick demo of it in action:
+
+https://github.com/user-attachments/assets/acf0101d-1b00-4f44-b153-62827f4cb186
+
+
 ## Usage
 
 This isn't the ideal hardware interface for a step sequencer, but I've (mostly) done the best with what I have.
