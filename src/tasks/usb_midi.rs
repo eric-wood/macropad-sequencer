@@ -1,6 +1,6 @@
-use crate::{Irqs, menus::Note};
+use crate::menus::Note;
 use embassy_futures::join::join;
-use embassy_rp::{Peri, peripherals::USB, usb::Driver};
+use embassy_rp::{peripherals::USB, usb::Driver};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use embassy_usb::class::{
     cdc_acm::{CdcAcmClass, State},
@@ -24,8 +24,7 @@ pub enum MidiEvent {
 pub static MIDI_CHANNEL: Channel<ThreadModeRawMutex, MidiEvent, 2> = Channel::new();
 
 #[embassy_executor::task]
-pub async fn usb_midi(peripheral: Peri<'static, USB>) {
-    let driver = Driver::new(peripheral, Irqs);
+pub async fn usb_midi(driver: Driver<'static, USB>) {
     let mut usb_config = embassy_usb::Config::new(0xc0de, 0xcafe);
     usb_config.manufacturer = Some("Heuristic Industries");
     usb_config.product = Some("Macropad");
