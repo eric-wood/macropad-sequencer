@@ -1,10 +1,16 @@
 use crate::menus::Note;
 use embassy_futures::join::join;
-use embassy_rp::{peripherals::USB, usb::Driver};
+use embassy_rp::{
+    peripherals::USB,
+    usb::{Driver, Instance},
+};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
-use embassy_usb::class::{
-    cdc_acm::{CdcAcmClass, State},
-    midi::MidiClass,
+use embassy_usb::{
+    class::{
+        cdc_acm::{CdcAcmClass, State},
+        midi::MidiClass,
+    },
+    driver::EndpointError,
 };
 use midi_convert::{
     midi_types::{MidiMessage, Note as MidiNote},
@@ -55,35 +61,55 @@ pub async fn usb_midi(driver: Driver<'static, USB>) {
 
     let midi_fut = async {
         loop {
-            match MIDI_CHANNEL.receive().await {
-                MidiEvent::Note {
-                    on,
-                    note,
-                    octave,
-                    velocity,
-                } => {
-                    let midi_note = convert_note(note, octave);
-                    let message = if on {
-                        MidiMessage::NoteOn(1.into(), midi_note, velocity.into())
-                    } else {
-                        MidiMessage::NoteOff(1.into(), midi_note, velocity.into())
-                    };
-
-                    let mut buffer = [0u8; 3];
-                    message.render_slice(&mut buffer);
-                    let packet =
-                        UsbMidiEventPacket::try_from_payload_bytes(CableNumber::Cable0, &buffer)
-                            .unwrap();
-                    midi_class
-                        .write_packet(packet.as_raw_bytes())
-                        .await
-                        .unwrap();
-                }
-            }
+            midi_class.wait_connection().await;
+            let _ = midi_send(&mut midi_class).await;
         }
     };
 
     join(usb_fut, join(logger_fut, midi_fut)).await;
+}
+
+struct Disconnected {}
+
+impl From<EndpointError> for Disconnected {
+    fn from(val: EndpointError) -> Self {
+        match val {
+            EndpointError::BufferOverflow => {
+                panic!("Buffer overflow")
+            }
+            EndpointError::Disabled => Disconnected {},
+        }
+    }
+}
+
+async fn midi_send<'a, T: Instance + 'a>(
+    class: &mut MidiClass<'a, Driver<'a, T>>,
+) -> Result<(), Disconnected> {
+    let mut buffer = [0; 64];
+
+    loop {
+        match MIDI_CHANNEL.receive().await {
+            MidiEvent::Note {
+                on,
+                note,
+                octave,
+                velocity,
+            } => {
+                let midi_note = convert_note(note, octave);
+                let message = if on {
+                    MidiMessage::NoteOn(1.into(), midi_note, velocity.into())
+                } else {
+                    MidiMessage::NoteOff(1.into(), midi_note, velocity.into())
+                };
+
+                message.render_slice(&mut buffer);
+                let packet =
+                    UsbMidiEventPacket::try_from_payload_bytes(CableNumber::Cable0, &buffer)
+                        .unwrap();
+                class.write_packet(packet.as_raw_bytes()).await?;
+            }
+        }
+    }
 }
 
 fn convert_note(note: Note, octave: u8) -> MidiNote {

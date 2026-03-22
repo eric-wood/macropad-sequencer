@@ -74,19 +74,17 @@ async fn main(spawner: Spawner) {
 
     let board = Board::new(peripherals);
 
-    spawner.spawn(read_controls()).unwrap();
-    spawner.spawn(update_lights(board.key_leds)).unwrap();
-    spawner.spawn(read_button(board.rotary_button)).unwrap();
-    spawner
-        .spawn(read_rotary_encoder(board.rotary_encoder))
-        .unwrap();
-    spawner.spawn(sequencer()).unwrap();
-    spawner.spawn(drive_display(board.display)).unwrap();
-    spawner.spawn(usb_midi(board.usb)).unwrap();
+    spawner.spawn(read_controls().unwrap());
+    spawner.spawn(update_lights(board.key_leds).unwrap());
+    spawner.spawn(read_button(board.rotary_button).unwrap());
+    spawner.spawn(read_rotary_encoder(board.rotary_encoder).unwrap());
+    spawner.spawn(sequencer().unwrap());
+    spawner.spawn(drive_display(board.display).unwrap());
+    spawner.spawn(usb_midi(board.usb).unwrap());
 
     for (y, row) in board.keys.into_iter().enumerate() {
         for (x, input) in row.into_iter().enumerate() {
-            spawner.spawn(read_key(input, (x as u8, y as u8))).unwrap();
+            spawner.spawn(read_key(input, (x as u8, y as u8)).unwrap());
         }
     }
 
