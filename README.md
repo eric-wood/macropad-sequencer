@@ -5,10 +5,11 @@ A minimal USB MIDI step sequencer that runs on the [Adafruit Macropad](https://w
 This is more of a tech demo than anything else!
 I'm using it to mess around with ideas I have around structuring non-trivial Embassy apps and will probably come back and add more features whenever I need a break from life.
 
+Read the [full writeup](https://ericwood.org/projects/macropad-sequencer) on my website.
+
 Quick demo of it in action:
 
-https://github.com/user-attachments/assets/acf0101d-1b00-4f44-b153-62827f4cb186
-
+<https://github.com/user-attachments/assets/acf0101d-1b00-4f44-b153-62827f4cb186>
 
 ## Usage
 
@@ -36,3 +37,7 @@ I had to stop hacking on this before it completely consumed my life, but here's 
 - Menu scrolling to support more than 4 options per menu
 - A little synth engine that uses the onboard speaker (need to make use of that second core!)
 - More than 12 steps?
+
+If nothing is consuming the USB MIDI packets the entire system freezes after an internal buffer fills.
+This seems to be a bug with `embassy_usb` that causes the async calls to send data to fully block.
+I would dig deeper into this but the debug header on my board snapped off and I haven't had time to dig into the bowels of embassy.
